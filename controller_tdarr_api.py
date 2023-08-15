@@ -2,8 +2,10 @@ import json
 import logging
 import requests
 from time import sleep
-from python_on_whales import docker as docker_client
+from python_on_whales import docker
+from python_on_whales import DockerClient
 from influxdb_client import InfluxDBClient
+from lib import *
 
 logging.basicConfig(
     format='| %(levelname)s | %(asctime)s | %(message)s',
@@ -14,177 +16,93 @@ logging.basicConfig(
 ])
 
 
-def query_influx(secrets, influx_client):
-    query_api = influx_client.query_api()
-    bucket = secrets['bucket']
+class Controller:
+    def __init__(self, container_name):
+        # parse secrets file as json
+        with open('secrets/controller_config.json') as f:
+            self.config = json.load(f)
 
-    power_consumed_query = f'from(bucket:"{bucket}")\
-        |> range(start: -15m)\
-        |> filter(fn: (r) => r._measurement == "fusionsolarpy")\
-        |> filter(fn: (r) => r.component == "power")\
-        |> filter(fn: (r) => r._field == "power_consumed")'
+        self.session = requests.Session()
 
-    power_produced_query = f'from(bucket:"{bucket}")\
-        |> range(start: -15m)\
-        |> filter(fn: (r) => r._measurement == "fusionsolarpy")\
-        |> filter(fn: (r) => r.component == "power")\
-        |> filter(fn: (r) => r._field == "power_produced")'
+        self.offline_server_power_estimate = self.config['baseWattsServer']
+        self.required_headroom_estimate = self.config['marginWatts']
+        self.container_name = container_name
+        self.query_interval = self.config['queryIntervalSeconds']
 
-    server_power_draw_query = f'from(bucket:"{bucket}")\
-        |> range(start: -1m)\
-        |> filter(fn: (r) => r._measurement == "tinytuya")\
-        |> filter(fn: (r) => r.socket == "server")\
-        |> filter(fn: (r) => r._field == "power")\
-        |> last()'
+        self.influx_client = InfluxDBClient(url=self.config['influxUrl'], token=self.config['influxToken'])
+        self.docker_client = DockerClient(host="ssh://UnraidTemp")
 
-    power_consumed_result = query_api.query(org=secrets['org'], query=power_consumed_query)
-    power_produced_result = query_api.query(org=secrets['org'], query=power_produced_query)
-    server_power_result = query_api.query(org=secrets['org'], query=server_power_draw_query)
+    def run_loop(self):
+        container_running, _ = query_docker(self.docker_client, self.container_name)
 
-    try:
-        server_power = next(record for record in next(table for table in server_power_result))
-        power_produced = []
-        power_consumed = []
+        if container_running:
+            try:
+                node_paused, node_id = get_tdarr_node_running_status(self.session, self.config)
+            except Exception as e:
+                logging.warning(f"failed to get tdarr node status: {e}, retrying in 120 seconds")
+                sleep(120)
+                return
 
-        for table in power_produced_result:
-            for record in table.records:
-                power_produced.append(record)
+        previous_values, current_values = query_influx(self.config, self.influx_client)
+        if not previous_values or not current_values:
+            logging.warning(f"no data returned from influx, sleeping for {self.query_interval} seconds")
+            if container_running and not node_paused:
+                logging.info(f"pausing {self.container_name}]")
+                update_tdarr_node(self.session, node_id, self.config, pause=True)
+            sleep(self.query_interval)
+            return
 
-        for table in power_consumed_result:
-            for record in table.records:
-                power_consumed.append(record)
+        headroom_now = max(round((current_values['power_produced'].get_value() -
+                        current_values['power_consumed'].get_value()) * 1000, 2), 0)
+        headroom_previous = max(round((previous_values['power_produced'].get_value(
+        ) - previous_values['power_consumed'].get_value()) * 1000, 2), 0)
+        current_server_power = current_values['server_power'].get_value()
 
-        current_values = {
-            "server_power": server_power,
-            "power_produced": power_produced[-1],
-            "power_consumed": power_consumed[-1],
-        }
-        previous_values = {
-            "power_produced": power_produced[-2],
-            "power_consumed": power_consumed[-2],
-        }
-        return previous_values, current_values
+        if container_running:
+            if headroom_now == headroom_previous:
+                logging.info(f"headroom steady at: {headroom_now}W")
+            elif headroom_now > headroom_previous:
+                logging.info(
+                    f"headroom rising: change: {headroom_now - headroom_previous}W @ {headroom_now}W {current_values['query_time']: %H:%M:%S}, {previous_values['query_time']: %H:%M:%S} @ {headroom_previous}W")
+            else:
+                logging.info(
+                    f"headroom falling: change: {headroom_now - headroom_previous}W @ {headroom_now}W @ {current_values['query_time']: %H:%M:%S}, {previous_values['query_time']: %H:%M:%S} @ {headroom_previous}W,")
 
-    except StopIteration as e:
-        logging.warning(f"No data returned from influx: {e}")
+            if node_paused:
+                # last two readings have to be above the required margin
+                if headroom_now >= self.required_headroom_estimate and headroom_previous >= self.required_headroom_estimate:
+                    logging.info(f"unpausing {self.container_name}")
+                    logging.info(f"required margin: {self.required_headroom_estimate}W")
+                    logging.info(f"current server power draw: {current_server_power}W")
+                    logging.info(f"current solar power headroom: {headroom_now}W")
+                    logging.info(f"last solar power headroom: {headroom_previous}W")
+                    update_tdarr_node(self.session, node_id, self.config, pause=False)
 
-    return None, None
+            elif not node_paused:
+                # estimate how much headroom would be required to stay green, cap at min margin
+                self.required_headroom_estimate = round(
+                    max(current_server_power - self.offline_server_power_estimate, self.config['marginWatts']), 2)
 
-
-def query_docker(docker_client, container_name):
-    container = docker_client.container.inspect(container_name)
-    container_running = container.state.running
-    container_paused = container.state.paused
-
-    return container_running, container_paused
-
-
-def get_tdarr_node_running_status(session):
-    r = session.get(f'{config["tdarrUrl"]}/api/v2/get-nodes')
-    r.raise_for_status()
-    json = r.json()
-    if len(json.keys()) > 0:
-        key = list(json.keys())[0]
-    else:
-        raise Exception("no nodes found")
-    return json[key]['nodePaused'], key
-
-
-def set_tdarr_node_status(session, node_id, pause):
-    r = session.post(f'{config["tdarrUrl"]}/api/v2/update-node', json={
-        "data": {
-            "nodeID": node_id,
-            "nodeUpdates": {
-                "nodePaused": pause
-            }
-        }
-    })
-    r.raise_for_status()
+                if headroom_now < self.required_headroom_estimate:
+                    logging.info(f"pausing {self.container_name}")
+                    logging.info(f"required margin for operation: {self.required_headroom_estimate}W")
+                    logging.info(f"current server power draw: {current_server_power}W")
+                    logging.info(f"current solar power headroom: {headroom_now}W")
+                    update_tdarr_node(self.session, node_id, self.config, pause=True)
 
 
-def update_tdarr_node(session, node_id, pause):
-    try:
-        set_tdarr_node_status(session, node_id, pause)
-    except Exception as e:
-        logging.warning(f"failed to update tdarr node status: {e}")
+        if not container_running or node_paused:
+            self.offline_server_power_estimate = current_server_power
+
+    def start(self, query_offset_seconds: int = 0):
+        logging.info(f"starting controller, {self.query_interval}s query interval with monitored container {self.container_name}...")
+        self.loop = TimedCalls(self.run_loop, datetime.timedelta(seconds=self.query_interval), query_offset_seconds)
+        self.loop.start()
+
+    def stop(self):
+        logging.info(f"stopping controller")
+        self.loop.cancel()
 
 
-# parse secrets file as json
-with open('secrets/controller_config.json') as f:
-    config = json.load(f)
 
-session = requests.Session()
-
-offline_server_power_estimate = config['baseWattsServer']
-required_headroom_estimate = config['marginWatts']
-container_name = 'tdarr'
-query_interval = config['queryIntervalSeconds']
-
-influx_client = InfluxDBClient(url=config['influxUrl'], token=config['influxToken'])
-# docker_client = docker = DockerClient(host="ssh://UnraidTemp")
-
-logging.info(f"starting loop, {query_interval}s query interval with monitored container {container_name}...")
-
-while True:
-    container_running, _ = query_docker(docker_client, container_name)
-
-    if container_running:
-        try:
-            node_paused, node_id = get_tdarr_node_running_status(session)
-        except Exception as e:
-            logging.warning(f"failed to get tdarr node status: {e}, retrying in 120 seconds")
-            sleep(120)
-            continue
-
-    previous_values, current_values = query_influx(config, influx_client)
-    if not previous_values or not current_values:
-        logging.warning(f"no data returned from influx, sleeping for {query_interval} seconds")
-        if container_running and not node_paused:
-            logging.info(f"pausing {container_name}]")
-            update_tdarr_node(session, node_id, pause=True)
-        sleep(query_interval)
-        continue
-
-    headroom_now = max(round((current_values['power_produced'].get_value() -
-                       current_values['power_consumed'].get_value()) * 1000, 2), 0)
-    headroom_previous = max(round((previous_values['power_produced'].get_value(
-    ) - previous_values['power_consumed'].get_value()) * 1000, 2), 0)
-    current_server_power = current_values['server_power'].get_value()
-
-    if container_running:
-        if headroom_now == headroom_previous:
-            logging.info(f"headroom steady at: {headroom_now}W")
-        elif headroom_now > headroom_previous:
-            logging.info(
-                f"headroom rising: now: {headroom_now}W, previous: {headroom_previous}W, change: {headroom_now - headroom_previous}W")
-        else:
-            logging.info(
-                f"headroom falling: now: {headroom_now}W, previous: {headroom_previous}W, change: {headroom_now - headroom_previous}W")
-
-        if node_paused:
-            # last two readings have to be above the required margin
-            if headroom_now >= required_headroom_estimate and headroom_previous >= required_headroom_estimate:
-                logging.info(f"unpausing {container_name}")
-                logging.info(f"required margin: {required_headroom_estimate}W")
-                logging.info(f"current server power draw: {current_server_power}W")
-                logging.info(f"current solar power headroom: {headroom_now}W")
-                logging.info(f"last solar power headroom: {headroom_previous}W")
-                update_tdarr_node(session, node_id, pause=False)
-
-        elif not node_paused:
-            # estimate how much headroom would be required to stay green, cap at min margin
-            required_headroom_estimate = round(
-                max(current_server_power - offline_server_power_estimate, config['marginWatts']), 2)
-
-            if headroom_now < required_headroom_estimate:
-                logging.info(f"pausing {container_name}")
-                logging.info(f"required margin for operation: {required_headroom_estimate}W")
-                logging.info(f"current server power draw: {current_server_power}W")
-                logging.info(f"current solar power headroom: {headroom_now}W")
-                update_tdarr_node(session, node_id, pause=True)
-
-
-    if not container_running or node_paused:
-        offline_server_power_estimate = current_server_power
-
-    sleep(query_interval)
+Controller('tdarr').start(150)
