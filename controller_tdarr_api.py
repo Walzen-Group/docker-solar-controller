@@ -60,7 +60,7 @@ class Controller:
         current_server_power = current_values['server_power'].get_value()
 
         if container_running:
-              if headroom_now == headroom_previous:
+            if headroom_now == headroom_previous:
                 logging.info(f"headroom steady at: {headroom_now}W")
             elif headroom_now > headroom_previous:
                 logging.info(
