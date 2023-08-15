@@ -1,7 +1,7 @@
 import json
 import logging
 from time import sleep
-from python_on_whales import docker as docker_client
+from python_on_whales import docker
 from python_on_whales import DockerClient
 from influxdb_client import InfluxDBClient
 from lib import *
@@ -28,7 +28,8 @@ class Controller:
 
 
         self.influx_client = InfluxDBClient(url=self.config['influxUrl'], token=self.config['influxToken'])
-        self.docker_client = DockerClient(host="ssh://UnraidTemp")
+        #self.docker_client = DockerClient(host="ssh://UnraidTemp")
+        self.docker_client = docker
 
     def run_loop(self):
         container_running, container_paused = query_docker(self.docker_client, self.container_name)

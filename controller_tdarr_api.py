@@ -30,7 +30,8 @@ class Controller:
         self.query_interval = self.config['queryIntervalSeconds']
 
         self.influx_client = InfluxDBClient(url=self.config['influxUrl'], token=self.config['influxToken'])
-        self.docker_client = DockerClient(host="ssh://UnraidTemp")
+        #self.docker_client = DockerClient(host="ssh://UnraidTemp")
+        self.docker_client = docker
 
     def run_loop(self):
         container_running, _ = query_docker(self.docker_client, self.container_name)
