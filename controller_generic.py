@@ -54,7 +54,7 @@ class Controller:
             #    logging.info(f"headroom steady at: {headroom_now}W")
             if headroom_now > headroom_previous:
                 logging.info(
-                    f"headroom rising\t: change: {(headroom_now - headroom_previous):>+4}W,\tvalues: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
+                    f"headroom rising:\t change: {(headroom_now - headroom_previous):>+4}W,\tvalues: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
             else:
                 logging.info(
                     f"headroom falling:\t change: {(headroom_now - headroom_previous):>+4}W,\tvalues: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
