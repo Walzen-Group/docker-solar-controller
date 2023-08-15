@@ -95,12 +95,12 @@ def query_influx(secrets, influx_client):
             "server_power": server_power,
             "power_produced": power_produced[-1],
             "power_consumed": power_consumed[-1],
-            "query_time": power_consumed[-1].get_time()
+            "query_time": power_consumed[-1].get_time().astimezone()
         }
         previous_values = {
             "power_produced": power_produced[-2],
             "power_consumed": power_consumed[-2],
-            "query_time": power_consumed[-2].get_time()
+            "query_time": power_consumed[-2].get_time().astimezone()
         }
         return previous_values, current_values
 
