@@ -94,4 +94,4 @@ class Controller:
         logging.info(f"stopping controller")
         self.loop.cancel()
 
-Controller('tdarr').start(150)
+Controller('tdarr').start(90)
