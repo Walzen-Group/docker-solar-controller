@@ -111,11 +111,11 @@ session = requests.Session()
 
 offline_server_power_estimate = config['baseWattsServer']
 required_headroom_estimate = config['marginWatts']
+container_name = 'tdarr'
+query_interval = config['queryIntervalSeconds']
 
 influx_client = InfluxDBClient(url=config['influxUrl'], token=config['influxToken'])
 # docker_client = docker = DockerClient(host="ssh://UnraidTemp")
-
-container_name = 'tdarr'
 
 logging.info(f"starting loop with monitored container {container_name}...")
 
@@ -132,11 +132,11 @@ while True:
 
     previous_values, current_values = query_influx(config, influx_client)
     if not previous_values or not current_values:
-        logging.warning("no data returned from influx, sleeping for 60 seconds")
+        logging.warning(f"no data returned from influx, sleeping for {query_interval} seconds")
         if container_running and not node_paused:
             logging.info(f"pausing {container_name}]")
             update_tdarr_node(session, node_id, pause=True)
-        sleep(60)
+        sleep(query_interval)
         continue
 
     headroom_now = max(round((current_values['power_produced'].get_value() -
@@ -182,4 +182,4 @@ while True:
     if not container_running or node_paused:
         offline_server_power_estimate = current_server_power
 
-    sleep(60)
+    sleep(query_interval)
