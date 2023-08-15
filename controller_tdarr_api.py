@@ -141,7 +141,7 @@ while True:
 
     headroom_now = max(round((current_values['power_produced'].get_value() -
                        current_values['power_consumed'].get_value()) * 1000, 2), 0)
-    headroom_previous = max(round((current_values['power_produced'].get_value(
+    headroom_previous = max(round((previous_values['power_produced'].get_value(
     ) - previous_values['power_consumed'].get_value()) * 1000, 2), 0)
     current_server_power = current_values['server_power'].get_value()
 
