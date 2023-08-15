@@ -117,7 +117,7 @@ query_interval = config['queryIntervalSeconds']
 influx_client = InfluxDBClient(url=config['influxUrl'], token=config['influxToken'])
 # docker_client = docker = DockerClient(host="ssh://UnraidTemp")
 
-logging.info(f"starting loop with monitored container {container_name}...")
+logging.info(f"starting loop, {query_interval}s query interval with monitored container {container_name}...")
 
 while True:
     container_running, _ = query_docker(docker_client, container_name)
