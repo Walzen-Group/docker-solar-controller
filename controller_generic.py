@@ -54,10 +54,10 @@ class Controller:
                 logging.info(f"headroom steady at: {headroom_now}W")
             elif headroom_now > headroom_previous:
                 logging.info(
-                    f"headroom rising: change: {headroom_now - headroom_previous}W @ {headroom_now}W {current_values['query_time']: %H:%M:%S}, {previous_values['query_time']: %H:%M:%S} @ {headroom_previous}W")
+                    f"headroom rising: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']: %H:%M:%S}, {previous_values['query_time']: %H:%M:%S} @ {headroom_previous}W")
             else:
                 logging.info(
-                    f"headroom falling: change: {headroom_now - headroom_previous}W @ {headroom_now}W @ {current_values['query_time']: %H:%M:%S}, {previous_values['query_time']: %H:%M:%S} @ {headroom_previous}W,")
+                    f"headroom falling: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']: %H:%M:%S}, {previous_values['query_time']: %H:%M:%S} @ {headroom_previous}W,")
 
             if container_paused:
                 # last two readings have to be above the required margin
