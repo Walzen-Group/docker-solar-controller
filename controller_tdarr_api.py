@@ -106,4 +106,4 @@ class Controller:
 
 
 
-Controller('tdarr').start(90)
+Controller('tdarr').start(40)
