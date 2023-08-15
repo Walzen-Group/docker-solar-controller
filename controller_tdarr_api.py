@@ -61,7 +61,8 @@ class Controller:
 
         if container_running:
             if headroom_now == headroom_previous:
-                logging.info(f"headroom steady at: {headroom_now}W")
+                if headroom_now != 0:
+                    logging.info(f"headroom steady at: {headroom_now}W")
             elif headroom_now > headroom_previous:
                 logging.info(
                     f"headroom rising:   change: {(headroom_now - headroom_previous):>+5}W, values: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
