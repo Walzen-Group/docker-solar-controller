@@ -80,10 +80,10 @@ with open('secrets/controller_config.json') as f:
 offline_server_power_estimate = config['baseWattsServer']
 required_headroom_estimate = config['marginWatts']
 
-while True:
-    influx_client = InfluxDBClient(url=config['url'], token=config['influxToken'])
-    docker_client = docker = DockerClient(host="ssh://UnraidTemp")
+influx_client = InfluxDBClient(url=config['url'], token=config['influxToken'])
+docker_client = docker = DockerClient(host="ssh://UnraidTemp")
 
+while True:
     previous_values, current_values = query_influx(config, influx_client)
     if not previous_values or not current_values:
         logging.warning("no data returned from influx, sleeping for 60 seconds")

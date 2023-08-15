@@ -1,0 +1,8 @@
+{
+    "influxToken": "mytoken",
+    "org": "myorg",
+    "bucket": "mybucket",
+    "url": "myinfluxurl",
+    "marginWatts": 100,
+    "baseWattsServer": 180
+}
