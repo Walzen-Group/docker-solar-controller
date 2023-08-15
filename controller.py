@@ -1,7 +1,7 @@
 import json
 import logging
 from time import sleep
-from python_on_whales import DockerClient
+from python_on_whales import docker as docker_client
 from influxdb_client import InfluxDBClient
 
 logging.basicConfig(format='%(levelname)s | %(asctime)s | %(message)s', level=logging.INFO)
@@ -81,7 +81,7 @@ offline_server_power_estimate = config['baseWattsServer']
 required_headroom_estimate = config['marginWatts']
 
 influx_client = InfluxDBClient(url=config['url'], token=config['influxToken'])
-docker_client = docker = DockerClient(host="ssh://UnraidTemp")
+#docker_client = docker = DockerClient(host="ssh://UnraidTemp")
 
 while True:
     previous_values, current_values = query_influx(config, influx_client)
