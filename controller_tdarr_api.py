@@ -84,7 +84,8 @@ class Controller:
                 self.required_headroom_estimate = round(
                     max(current_server_power - self.offline_server_power_estimate, self.config['marginWatts']), 2)
 
-                if headroom_now < self.required_headroom_estimate:
+                # if no more headroom is left we need to stahp
+                if headroom_now < 10:
                     logging.info(f"pausing {self.container_name}")
                     logging.info(f"required margin for operation: {self.required_headroom_estimate}W")
                     logging.info(f"current server power draw: {current_server_power}W")
