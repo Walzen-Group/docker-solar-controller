@@ -53,21 +53,21 @@ class Controller:
             sleep(self.query_interval)
             return
 
-        headroom_now = max(round((current_values['power_produced'].get_value() -
-                        current_values['power_consumed'].get_value()) * 1000, 2), 0)
-        headroom_previous = max(round((previous_values['power_produced'].get_value(
-        ) - previous_values['power_consumed'].get_value()) * 1000, 2), 0)
+        headroom_now = int(max(round((current_values['power_produced'].get_value() -
+                        current_values['power_consumed'].get_value()) * 1000, 2), 0))
+        headroom_previous = int(max(round((previous_values['power_produced'].get_value(
+        ) - previous_values['power_consumed'].get_value()) * 1000, 2), 0))
         current_server_power = current_values['server_power'].get_value()
 
         if container_running:
-            if headroom_now == headroom_previous:
-                logging.info(f"headroom steady at: {headroom_now}W")
-            elif headroom_now > headroom_previous:
+            #if headroom_now == headroom_previous:
+            #    logging.info(f"headroom steady at: {headroom_now}W")
+            if headroom_now > headroom_previous:
                 logging.info(
-                    f"headroom rising: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous}W @ {previous_values['query_time']:%H:%M:%S}")
+                    f"headroom rising\t: change: {(headroom_now - headroom_previous):>+4}W,\tvalues: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
             else:
                 logging.info(
-                    f"headroom falling: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous}W @ {previous_values['query_time']:%H:%M:%S}")
+                    f"headroom falling:\t change: {(headroom_now - headroom_previous):>+4}W,\tvalues: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
 
             if node_paused:
                 # last two readings have to be above the required margin
