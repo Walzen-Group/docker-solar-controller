@@ -2,7 +2,8 @@
     "influxToken": "mytoken",
     "org": "myorg",
     "bucket": "mybucket",
-    "url": "myinfluxurl",
+    "influxUrl": "myinfluxurl",
+    "tdarrUrl": "mytdarrurl",
     "marginWatts": 100,
     "baseWattsServer": 180
 }

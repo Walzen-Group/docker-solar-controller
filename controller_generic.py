@@ -80,7 +80,7 @@ with open('secrets/controller_config.json') as f:
 offline_server_power_estimate = config['baseWattsServer']
 required_headroom_estimate = config['marginWatts']
 
-influx_client = InfluxDBClient(url=config['url'], token=config['influxToken'])
+influx_client = InfluxDBClient(url=config['influxUrl'], token=config['influxToken'])
 #docker_client = docker = DockerClient(host="ssh://UnraidTemp")
 
 container_name = 'tdarr'
