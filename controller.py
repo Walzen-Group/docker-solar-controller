@@ -65,7 +65,7 @@ def query_influx(secrets, influx_client):
 
 
 def query_docker(docker_client, container_name):
-    container = docker.container.inspect(container_name)
+    container = docker_client.container.inspect(container_name)
     container_running = container.state.running
     container_paused = container.state.paused
 
