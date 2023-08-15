@@ -50,8 +50,8 @@ class Controller:
         current_server_power = current_values['server_power'].get_value()
 
         if container_running:
-            #if headroom_now == headroom_previous:
-            #    logging.info(f"headroom steady at: {headroom_now}W")
+            if headroom_now == headroom_previous:
+                logging.info(f"headroom steady at: {headroom_now}W")
             if headroom_now > headroom_previous:
                 logging.info(
                     f"headroom rising:\t change: {(headroom_now - headroom_previous):>+5}W, values: {headroom_now:>4}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous:>4}W @ {previous_values['query_time']:%H:%M:%S}")
