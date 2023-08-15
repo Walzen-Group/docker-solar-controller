@@ -60,14 +60,14 @@ class Controller:
         current_server_power = current_values['server_power'].get_value()
 
         if container_running:
-            if headroom_now == headroom_previous:
+              if headroom_now == headroom_previous:
                 logging.info(f"headroom steady at: {headroom_now}W")
             elif headroom_now > headroom_previous:
                 logging.info(
-                    f"headroom rising: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']:%H:%M:%S}, {previous_values['query_time']:%H:%M:%S} @ {headroom_previous}W")
+                    f"headroom rising: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous}W @ {previous_values['query_time']:%H:%M:%S}")
             else:
                 logging.info(
-                    f"headroom falling: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']:%H:%M:%S}, {previous_values['query_time']:%H:%M:%S} @ {headroom_previous}W")
+                    f"headroom falling: change: {headroom_now - headroom_previous}W, values: {headroom_now}W @ {current_values['query_time']:%H:%M:%S}, {headroom_previous}W @ {previous_values['query_time']:%H:%M:%S}")
 
             if node_paused:
                 # last two readings have to be above the required margin
