@@ -162,8 +162,6 @@ while True:
                 f"headroom falling: now: {headroom_now}W, previous: {headroom_previous}W, change: {headroom_now - headroom_previous}W")
 
         if node_paused:
-            # estimate how much headroom would be required to stay green, cap at min margin
-
             # last two readings have to be above the required margin
             if headroom_now >= required_headroom_estimate and headroom_previous >= required_headroom_estimate:
                 logging.info(f"unpausing {container_name}")
@@ -174,6 +172,7 @@ while True:
                 update_tdarr_node(session, node_id, pause=False)
 
         elif not node_paused:
+            # estimate how much headroom would be required to stay green, cap at min margin
             required_headroom_estimate = round(
                 max(current_server_power - offline_server_power_estimate, config['marginWatts']), 2)
 
