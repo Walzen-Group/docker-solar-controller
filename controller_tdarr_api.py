@@ -174,7 +174,7 @@ while True:
             if headroom_now < required_headroom_estimate:
                 logging.info(f"pausing {container_name}")
                 logging.info(f"required margin for operation: {required_headroom_estimate}W")
-                logging.info(f"current server power draw: {current_values['server_power']}W")
+                logging.info(f"current server power draw: {current_server_power}W")
                 logging.info(f"current solar power headroom: {headroom_now}W")
                 update_tdarr_node(session, node_id, pause=True)
 
