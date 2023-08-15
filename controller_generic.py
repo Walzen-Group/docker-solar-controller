@@ -4,7 +4,13 @@ from time import sleep
 from python_on_whales import docker as docker_client
 from influxdb_client import InfluxDBClient
 
-logging.basicConfig(format='| %(levelname)s | %(asctime)s | %(message)s', level=logging.INFO)
+logging.basicConfig(
+    format='| %(levelname)s | %(asctime)s | %(message)s',
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler("controller.log"),
+        logging.StreamHandler()
+])
 
 def query_influx(secrets, influx_client):
     query_api = influx_client.query_api()
