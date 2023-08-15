@@ -4,20 +4,20 @@ from time import sleep
 from python_on_whales import docker as docker_client
 from influxdb_client import InfluxDBClient
 
-logging.basicConfig(format='%(levelname)s | %(asctime)s | %(message)s', level=logging.INFO)
+logging.basicConfig(format='| %(levelname)s | %(asctime)s | %(message)s', level=logging.INFO)
 
 def query_influx(secrets, influx_client):
     query_api = influx_client.query_api()
     bucket = secrets['bucket']
 
     power_consumed_query = f'from(bucket:"{bucket}")\
-        |> range(start: -10m)\
+        |> range(start: -15m)\
         |> filter(fn: (r) => r._measurement == "fusionsolarpy")\
         |> filter(fn: (r) => r.component == "power")\
         |> filter(fn: (r) => r._field == "power_consumed")'
 
     power_produced_query = f'from(bucket:"{bucket}")\
-        |> range(start: -10m)\
+        |> range(start: -15m)\
         |> filter(fn: (r) => r._measurement == "fusionsolarpy")\
         |> filter(fn: (r) => r.component == "power")\
         |> filter(fn: (r) => r._field == "power_produced")'
@@ -49,12 +49,12 @@ def query_influx(secrets, influx_client):
 
         current_values = {
             "server_power": server_power,
-            "power_produced": power_produced[1],
-            "power_consumed": power_consumed[1],
+            "power_produced": power_produced[-1],
+            "power_consumed": power_consumed[-1],
         }
         previous_values = {
-            "power_produced": power_produced[0],
-            "power_consumed": power_consumed[0],
+            "power_produced": power_produced[-2],
+            "power_consumed": power_consumed[-2],
         }
         return previous_values, current_values
 
@@ -83,17 +83,25 @@ required_headroom_estimate = config['marginWatts']
 influx_client = InfluxDBClient(url=config['url'], token=config['influxToken'])
 #docker_client = docker = DockerClient(host="ssh://UnraidTemp")
 
+container_name = 'tdarr'
+
+logging.info(f"starting loop with monitored container {container_name}...")
+
 while True:
+    container_running, container_paused = query_docker(docker_client, container_name)
     previous_values, current_values = query_influx(config, influx_client)
     if not previous_values or not current_values:
         logging.warning("no data returned from influx, sleeping for 60 seconds")
+        if container_running and not container_paused:
+            logging.info(f"pausing {container_name}]")
+            docker_client.container.pause(container_name)
         sleep(60)
         continue
+
     headroom_now = max(round((current_values['power_produced'].get_value() - current_values['power_consumed'].get_value()) * 1000, 2), 0)
     headroom_previous = max(round((current_values['power_produced'].get_value() - previous_values['power_consumed'].get_value()) * 1000, 2), 0)
     current_server_power = current_values['server_power'].get_value()
 
-    container_running, container_paused = query_docker(docker_client, 'tdarr')
     if container_running:
         if headroom_now == headroom_previous:
             logging.info(f"headroom steady at: {headroom_now}W")
@@ -107,21 +115,21 @@ while True:
 
             # last two readings have to be above the required margin
             if headroom_now >= required_headroom_estimate and headroom_previous >= required_headroom_estimate:
-                logging.info("unpausing tdarr")
+                logging.info(f"unpausing {container_name}")
                 logging.info(f"required margin: {required_headroom_estimate}W")
-                logging.info(f"current server power draw: {current_values['server_power']}W")
+                logging.info(f"current server power draw: {current_server_power}W")
                 logging.info(f"current solar power headroom: {headroom_now}W")
                 logging.info(f"last solar power headroom: {headroom_previous}W")
-                docker_client.container.unpause('tdarr')
+                docker_client.container.unpause(container_name)
         elif not container_paused:
-            required_headroom_estimate = max(current_server_power - offline_server_power_estimate, config['marginWatts'])
+            required_headroom_estimate = round(max(current_server_power - offline_server_power_estimate, config['marginWatts']), 2)
 
             if headroom_now < required_headroom_estimate:
-                logging.info("pausing tdarr")
+                logging.info(f"pausing {container_name}")
                 logging.info(f"required margin for operation: {required_headroom_estimate}W")
                 logging.info(f"current server power draw: {current_values['server_power']}W")
                 logging.info(f"current solar power headroom: {headroom_now}W")
-                docker_client.container.pause('tdarr')
+                docker_client.container.pause(container_name)
 
     if not container_running or container_paused:
         offline_server_power_estimate = current_server_power
