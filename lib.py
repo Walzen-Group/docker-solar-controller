@@ -73,10 +73,13 @@ def query_influx(secrets, influx_client):
         |> filter(fn: (r) => r.socket == "server")\
         |> filter(fn: (r) => r._field == "power")\
         |> last()'
-
-    power_consumed_result = query_api.query(org=secrets['org'], query=power_consumed_query)
-    power_produced_result = query_api.query(org=secrets['org'], query=power_produced_query)
-    server_power_result = query_api.query(org=secrets['org'], query=server_power_draw_query)
+    try:
+        power_consumed_result = query_api.query(org=secrets['org'], query=power_consumed_query)
+        power_produced_result = query_api.query(org=secrets['org'], query=power_produced_query)
+        server_power_result = query_api.query(org=secrets['org'], query=server_power_draw_query)
+    except Exception as e:
+        logging.warning(f"failed to query influx: {e}")
+        return None, None
 
     try:
         server_power = next(record for record in next(table for table in server_power_result))
