@@ -35,6 +35,8 @@ class Controller:
 
     def run_loop(self):
         container_running, _ = query_docker(self.docker_client, self.container_name)
+        plex_running, plex_paused = query_docker(self.docker_client, "PlexMediaServer")
+
 
         if container_running:
             try:
@@ -50,6 +52,8 @@ class Controller:
             if container_running and not node_paused:
                 logging.info(f"pausing {self.container_name}]")
                 update_tdarr_node(self.session, node_id, self.config, pause=True)
+                if plex_running and not plex_paused:
+                    self.docker_client.container.pause("PlexMediaServer")
             sleep(self.query_interval)
             return
 
@@ -79,6 +83,8 @@ class Controller:
                     logging.info(f"current solar power headroom: {headroom_now}W")
                     logging.info(f"last solar power headroom: {headroom_previous}W")
                     update_tdarr_node(self.session, node_id, self.config, pause=False)
+                    if plex_running and plex_paused:
+                        self.docker_client.container.unpause("PlexMediaServer")
 
             elif not node_paused:
                 # estimate how much headroom would be required to stay green, cap at min margin
@@ -92,6 +98,8 @@ class Controller:
                     logging.info(f"current server power draw: {current_server_power}W")
                     logging.info(f"current solar power headroom: {headroom_now}W")
                     update_tdarr_node(self.session, node_id, self.config, pause=True)
+                    if plex_running and not plex_paused:
+                        self.docker_client.container.pause("PlexMediaServer")
 
 
         if not container_running or node_paused:
