@@ -109,6 +109,8 @@ def query_influx(secrets, influx_client):
 
     except StopIteration as e:
         logging.warning(f"No data returned from influx: {e}")
+    except Exception as e:
+        logging.warning(f"invalid data from influx: {e}")
 
     return None, None
 
